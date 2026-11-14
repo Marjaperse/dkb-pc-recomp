@@ -362,7 +362,7 @@ def port_version():
     return version
 
 
-def ninja_file(gen, out, mods, pool_depth, skip=(), prebuilt=False, runtime_lib=None, make_lib=False):
+def ninja_file(gen, out, mods, pool_depth, skip=(), prebuilt=False, runtime_lib=None, make_lib=False, streamline_sdk=None):
     """build.ninja text, and the object lists per module. With prebuilt the generated objects already exist in
     out/obj and are link inputs without a compile edge. runtime_lib: a prebuilt library replaces the runtime objects
     except INSTALL_SIDE. make_lib: build only that library, from the runtime objects except INSTALL_SIDE."""
@@ -438,7 +438,10 @@ def ninja_file(gen, out, mods, pool_depth, skip=(), prebuilt=False, runtime_lib=
         else:
             lines.append(f'build {ninja_path(o)}: cc_rt {ninja_path(src)}')
             if src.suffix == '.cpp':   # the Ampere lowering headers (runtime/third_party/eglantine) need C++20
-                lines.append(f'  rtflags = $rtflags -std=c++20 -I {cmd_path(RUNTIME / "third_party" / "eglantine")}')
+                extra = ''
+                if src.name == 'vk_dlssg.cpp' and streamline_sdk:
+                    extra = f' -DDKB_HAVE_STREAMLINE=1 -I {cmd_path(streamline_sdk / "include")}'
+                lines.append(f'  rtflags = $rtflags -std=c++20 -I {cmd_path(RUNTIME / "third_party" / "eglantine")}{extra}')
         rt.append(o)
     objs['runtime'] = rt
     every = [o for v in objs.values() for o in v]
@@ -812,11 +815,24 @@ def main():
                                               f'and VMA (default {DEFAULT_DEPS.relative_to(ROOT).as_posix()})')
     ap.add_argument('--make-runtime-lib', action='store_true',
                     help=f'build only <out>/{LIB_NAME} from runtime/ (no generated C, no totk.exe)')
+    ap.add_argument('--streamline-sdk', type=Path,
+                    help='Windows: NVIDIA Streamline SDK root with include/sl.h; enables DLSS-G preflight only, '
+                         'does not copy or package NVIDIA DLLs')
     ap.add_argument('--runtime-lib', type=Path, help=f'link against this {LIB_NAME} instead of compiling runtime/ '
                                                     f'({", ".join(sorted(INSTALL_SIDE))} and modules.c still compile)')
     ap.add_argument('--expected', type=Path,
                     help='expected hashes (default tools/data/expected-<display version>.json)')
     args = ap.parse_args()
+
+    streamline_sdk = args.streamline_sdk.resolve() if args.streamline_sdk else None
+    if streamline_sdk:
+        if not WIN:
+            ap.error('--streamline-sdk currently supports Windows only')
+        if args.runtime_lib:
+            ap.error('--streamline-sdk must be used when compiling the runtime, not with --runtime-lib')
+        for header in ('sl.h', 'sl_dlss_g.h'):
+            if not (streamline_sdk / 'include' / header).is_file():
+                ap.error(f'--streamline-sdk: missing {streamline_sdk / "include" / header}')
 
     gen = (args.gen or ROOT / 'generated' / args.version).resolve()
     out = (args.out or ROOT / 'build' / args.version).resolve()
@@ -918,7 +934,7 @@ def main():
     if runtime_lib and not runtime_lib.is_file():
         sys.exit(f'{runtime_lib} not found: build it with --make-runtime-lib')
     text, objs, exe = ninja_file(gen, out, mods, jobs, skip, pairs is not None, runtime_lib,
-                                 args.make_runtime_lib)
+                                 args.make_runtime_lib, streamline_sdk)
     write_if_changed(out / 'build.ninja', text)
 
     env = dict(os.environ)

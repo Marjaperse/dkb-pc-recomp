@@ -164,6 +164,8 @@
 # overlay is drawn on every shown frame and is never interpolated. No frame is made after a gap of over 100 ms, when the
 # picture's size changes, for the game's own HDR picture, when the display's refresh is below the doubled rate, or unless
 # vk_present is mailbox or immediate. Changes while the game runs take effect at once.
+# Development only: dlss runs a DLSS-G runtime/GPU preflight and presents original frames; interpolation is not
+# implemented yet. Requires a build with --streamline-sdk and matching NVIDIA runtime DLLs; see docs/dkb-dlss-framegen.md.
 # frame_gen = off
 # Picture shape when the window's shape differs from the game resolution's (a 16:9 picture in a 21:9 fullscreen
 # window): fit, the default, keeps the shape, with black bars at the sides or above and below, so a 16:9 game in a wider

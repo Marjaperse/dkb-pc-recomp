@@ -51,6 +51,10 @@ hactool reads `-k <prod.keys>`; MSYS2 shells set `HOME`, which hides its default
 
 ## Build
 
+DLSS Frame Generation development builds can add `--streamline-sdk <SDK-root>` to `tools/build_game.py` on Windows.
+This enables a runtime/adapter preflight only; generated-frame presentation is not implemented yet. The normal build
+requires no NVIDIA SDK. See [DLSS-G development](dkb-dlss-framegen.md) for runtime requirements and validation.
+
 From the repository root, in PowerShell. Every step that depends on the game version takes it as `<ver>`: `v143` for
 1.4.3, `v121` for 1.2.1 or `v111` for 1.1.1. The tools default to `v121` when `--version` is left out. Saves load on any
 of them.
@@ -278,6 +282,8 @@ change passes these, all run with `.venv`:
 | `tests\codec_abi_test.py`, `tests\jcms_abi_test.py`, `tests\system_services_test.py`, `tests\nvn_version_test.py` | the `nn::codec` VP9 ABI, the Jcms peripheral stubs, the system service host bindings and the NVN minor version per target | no |
 | `tests\input_script_test.py --cc <clang>` | the scripted input parser and scheduler (`runtime/input_script.c`) on synthetic clocks: ticks, timed events, holds, mixed scripts, the landing summary | no |
 | `tests\fg_pace_test.py --cc <clang>` | the pacing arithmetic of the frame generation (`runtime/fg_pace.h`) on a synthetic clock: the interval average, its clamps, the hitch rule, even spacing | no |
+| `tests\dlssg_build_test.py` | optional Streamline SDK build flags and rejection of unsupported build configurations | no |
+| `tests\dlssg_preflight_test.py --cc <clang> --deps <Vulkan-include-dir> [--streamline-sdk <SDK-root>]` | Windows DLSS-G preflight against a mock runtime DLL; fallback, capability errors and cleanup, without NVIDIA hardware | no |
 | `tests\aoc_romfs_test.py --cc <clang>` | the add-on content reader on synthetic TOTKRFS1 packs: bad and unsorted indexes, EOF reads, handle table, unmount and remount, `ListAddOnContent` paging | no |
 | `tests\texture_written_late_test.py --cc <clang> --deps <runtime deps>` | the texture marking a helper part defers to its join (`vk_texture_gpu_written_late`), with a game thread's release before and after it, and the pending mirror copy count (`range_add`, `vk_mem_mirror_pending`); `--source-root <checkout>` runs it on another tree | no |
 | `tests\lowend_bench_test.py` | `tools\lowend_bench.py` `parse_log` on a synthetic perf log (the tool itself runs `dkb.exe` pinned to N cores and prints a before/after table) | no |

@@ -14,6 +14,7 @@
 // vk_present_image and vk_present_flip.
 // Any failure turns the pass off for the session with one log line, and the present goes on as without it.
 #include "vk.h"
+#include "vk_dlssg.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -314,9 +315,10 @@ static void log_stats(uint64_t now) {
 
 static int record(VkImage src, VkFormat fmt, int w, int h, const int crop[4]) {
     VkCtx *c = vk_ctx();
-    if (S.dead || !c) return 0;
+    if (!c) return 0;
     if (gfx_window_closing()) return 0;   // the exit is about to free everything below
-    if (strcmp(cfg_value("TOTK_FRAME_GEN"), "2x")) {   // off, or turned off while running: hand the images back
+    const char *backend = cfg_value("TOTK_FRAME_GEN");
+    if (strcmp(backend, "2x")) {   // off or another backend: hand the interpolation images back
         if (S.w) {
             vk_queue_lock();
             vkDeviceWaitIdle(c->device);
@@ -324,8 +326,15 @@ static int record(VkImage src, VkFormat fmt, int w, int h, const int crop[4]) {
             free_images(c);
         }
         S.last_at = 0;
+        if (!strcmp(backend, "dlss")) {
+            // DLSS-G currently checks runtime/adapter support only. Never present the block-matching output as
+            // DLSS-G, and never suppress the game's normal present until Streamline actually produces a frame.
+            if (!rt_game_version) vk_dlssg_probe(c->phys, c->props.vendorID);
+            else say(SAY_GAME, "fg: not Bananza: no made frames", 0);
+        }
         return 0;
     }
+    if (S.dead) return 0;
     // the crop as vk_present_image reads it
     int cx = 0, cy = 0, cw = w, ch = h;
     if (crop && crop[2] > 0 && crop[3] > 0) cx = crop[0], cy = crop[1], cw = crop[2], ch = crop[3];
@@ -473,6 +482,7 @@ void vk_fg_show(int (*pending)(void), uint64_t frame) {
 void vk_fg_release(void) {
     VkCtx *c = vk_ctx();
     plat_mutex_lock(&fgl);
+    vk_dlssg_reset_probe();
     if (c && S.tried) {
         free_all(c);
         memset(&S, 0, sizeof S);

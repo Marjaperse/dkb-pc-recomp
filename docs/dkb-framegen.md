@@ -2,6 +2,9 @@
 
 Off by default. Code: `runtime/vk_framegen.c`, pacing arithmetic in `runtime/fg_pace.h`, shaders in `runtime/shaders/fg_*.comp`.
 
+This page describes `frame_gen = 2x`. The separate `frame_gen = dlss` development path currently runs a Streamline
+capability check only and makes no frames; see [DLSS-G development](dkb-dlss-framegen.md).
+
 ## What it does
 
 2x only. For each pair of game frames the present thread makes one extra frame:
